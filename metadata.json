@@ -1,0 +1,6 @@
+{
+  "name": "Veritas Noir: Biometric Cold Cases",
+  "description": "A hardboiled noir detective investigation game where you analyze voice patterns, facial micro-expressions, and physical clues calibrated against suspects' baseline psychology to crack cold cases.",
+  "requestFramePermissions": ["microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
