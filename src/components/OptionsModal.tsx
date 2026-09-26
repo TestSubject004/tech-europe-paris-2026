@@ -22,9 +22,10 @@
  */
 
 import React from 'react';
-import { Settings, ShieldAlert, ShieldCheck, Volume2, VolumeX, CloudRain, RotateCcw, X, Info, Download, Package } from 'lucide-react';
+import { Settings, ShieldAlert, ShieldCheck, Volume2, VolumeX, CloudRain, RotateCcw, X, Info, Download, Package, Server, Globe, Check } from 'lucide-react';
 import { sound } from '../utils/audio';
 import { logFunctionCall } from '../utils/logger';
+import { APP_CONFIG } from '../config';
 
 /**
  * Properties for OptionsModal component.
@@ -54,12 +55,14 @@ export const OptionsModal: React.FC<OptionsModalProps> = ({
   const [isMuted, setIsMuted] = React.useState(sound.getMuted());
   const [ambientRainActive, setAmbientRainActive] = React.useState(false);
   const [resetConfirmation, setResetConfirmation] = React.useState(false);
+  const [serverUrl, setServerUrl] = React.useState<string>(() => APP_CONFIG.server.getApiBaseUrl());
+  const [serverSaved, setServerSaved] = React.useState<boolean>(false);
 
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="bg-[#0b0f17] border border-amber-500/50 rounded-xl max-w-lg w-full p-6 space-y-6 shadow-2xl relative">
+      <div className="bg-[#0b0f17] border border-amber-500/50 rounded-xl max-w-lg w-full p-6 space-y-5 shadow-2xl relative overflow-y-auto max-h-[90vh]">
         {/* Header */}
         <div className="flex items-center justify-between pb-3 border-b border-slate-800">
           <div className="flex items-center gap-2.5">
@@ -262,6 +265,57 @@ export const OptionsModal: React.FC<OptionsModalProps> = ({
               <span>Download .ZIP</span>
             </a>
           </div>
+        </div>
+
+        {/* Setting 5: Remote AI Server Endpoint (Optional for itch.io players) */}
+        <div className="p-4 rounded-lg bg-slate-950/90 border border-slate-800 space-y-3">
+          <div className="flex items-start justify-between gap-4">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <Server className="w-4 h-4 text-cyan-400 shrink-0" />
+                <span className="text-sm font-bold text-slate-100 font-terminal">
+                  Remote AI Backend Server (Optional)
+                </span>
+              </div>
+              <p className="text-xs text-slate-400 leading-relaxed font-terminal">
+                For itch.io players: paste your Cloud Run / Node server URL to enable Gemini AI voice transcription & studio audio. Leave blank to run standalone in your browser.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 pt-1">
+            <input
+              type="text"
+              value={serverUrl}
+              onChange={(e) => setServerUrl(e.target.value)}
+              placeholder="e.g. https://your-backend-app.run.app"
+              className="flex-1 bg-slate-900 border border-slate-700 rounded px-3 py-1.5 text-xs font-terminal text-slate-200 placeholder-slate-500 focus:outline-none focus:border-cyan-500"
+            />
+            <button
+              type="button"
+              onClick={() => {
+                sound.playTypewriter();
+                APP_CONFIG.server.setApiBaseUrl(serverUrl);
+                setServerSaved(true);
+                setTimeout(() => setServerSaved(false), 3000);
+              }}
+              className="px-3.5 py-1.5 rounded bg-cyan-950/80 hover:bg-cyan-900 border border-cyan-500/50 text-cyan-300 text-xs font-terminal font-semibold transition-colors shrink-0 flex items-center gap-1"
+            >
+              {serverSaved ? (
+                <>
+                  <Check className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Saved</span>
+                </>
+              ) : (
+                <span>Save URL</span>
+              )}
+            </button>
+          </div>
+          {serverSaved && (
+            <div className="text-[11px] font-terminal text-emerald-300">
+              API endpoint updated. Network calls will now route to this server.
+            </div>
+          )}
         </div>
 
         {/* Footer actions */}

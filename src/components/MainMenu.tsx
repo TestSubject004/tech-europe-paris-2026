@@ -66,34 +66,34 @@ export const MainMenu: React.FC<MainMenuProps> = ({
   logFunctionCall('MainMenu', { detectiveShieldEnabled, hasActiveProgress, activeCaseTitle });
 
   return (
-    <div className="relative min-h-[calc(100vh-4rem)] flex flex-col justify-between py-6 md:py-10 px-4 md:px-8 overflow-hidden">
+    <div className="relative min-h-[calc(100vh-7rem)] flex flex-col justify-start gap-6 sm:gap-8 py-3 sm:py-6 md:py-8 px-3 sm:px-6 md:px-8">
       {/* Background Ambience Layer */}
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-amber-950/20 via-[#080b11] to-[#040609] pointer-events-none" />
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-amber-950/20 via-[#080b11] to-[#040609] pointer-events-none overflow-hidden rounded-xl" />
       <div 
-        className="absolute inset-0 opacity-[0.035] pointer-events-none"
+        className="absolute inset-0 opacity-[0.035] pointer-events-none overflow-hidden rounded-xl"
         style={{
           backgroundImage: `repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255, 255, 255, 0.1) 2px, rgba(255, 255, 255, 0.1) 4px)`
         }}
       />
 
       {/* Header Section */}
-      <div className="relative z-10 max-w-4xl mx-auto w-full text-center space-y-4 pt-4 md:pt-8">
+      <div className="relative z-10 max-w-4xl mx-auto w-full text-center space-y-3 sm:space-y-4 pt-2 md:pt-4">
         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-950/60 border border-amber-500/40 text-amber-300 text-xs font-terminal uppercase tracking-widest shadow-lg shadow-amber-950/20">
           <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
           <span>Precinct 8 Forensic Archives · 1948 Division</span>
         </div>
 
-        <h1 className="text-4xl sm:text-6xl md:text-7xl font-black font-noir tracking-wider text-slate-100 uppercase drop-shadow-md">
+        <h1 className="text-3xl sm:text-5xl md:text-6xl lg:text-7xl font-black font-noir tracking-wider text-slate-100 uppercase drop-shadow-md">
           Detective Stories
         </h1>
 
-        <p className="max-w-2xl mx-auto text-sm md:text-base text-slate-300 font-serif italic leading-relaxed">
+        <p className="max-w-2xl mx-auto text-xs sm:text-sm md:text-base text-slate-300 font-serif italic leading-relaxed px-2">
           Step into the rain-slicked shadows of Precinct 8. Cross-examine suspects using calibrated voice pitch jitter, 48-point facial micro-expression meshes, and hard physical timeline contradictions to crack cold murder cases.
         </p>
       </div>
 
       {/* Primary Action Hub: 3 Main Menu Buttons */}
-      <div className="relative z-10 max-w-md mx-auto w-full space-y-3.5 my-8">
+      <div className="relative z-10 max-w-md mx-auto w-full space-y-3 my-2 sm:my-4">
         {/* 1. PLAY GAME / RESUME */}
         <button
           onClick={() => {

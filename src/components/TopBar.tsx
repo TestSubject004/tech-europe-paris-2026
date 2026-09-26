@@ -34,11 +34,13 @@ import {
   UserCheck, 
   BookOpen, 
   Home, 
-  FolderArchive,
-  Layers,
-  Settings,
-  HelpCircle,
-  Award
+  FolderArchive, 
+  Layers, 
+  Settings, 
+  HelpCircle, 
+  Award, 
+  Maximize, 
+  Minimize 
 } from 'lucide-react';
 import { sound } from '../utils/audio';
 import { logFunctionCall } from '../utils/logger';
@@ -83,6 +85,28 @@ export const TopBar: React.FC<TopBarProps> = ({
 
   const [isMuted, setIsMuted] = React.useState(sound.getMuted());
   const [ambientActive, setAmbientActive] = React.useState(false);
+  const [isFullscreen, setIsFullscreen] = React.useState(false);
+
+  React.useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, []);
+
+  /**
+   * Toggles native browser fullscreen.
+   */
+  const toggleFullscreen = (): void => {
+    logFunctionCall('TopBar.toggleFullscreen', { isFullscreen });
+    sound.playTypewriter();
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(() => {});
+    } else {
+      document.exitFullscreen().catch(() => {});
+    }
+  };
 
   /**
    * Toggles master audio mute state.
@@ -104,9 +128,9 @@ export const TopBar: React.FC<TopBarProps> = ({
   };
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b border-slate-800 bg-[#070a10]/95 backdrop-blur px-3 sm:px-6 py-2.5 flex items-center justify-between gap-3">
+    <header className="sticky top-0 z-40 w-full border-b border-slate-800 bg-[#070a10]/95 backdrop-blur px-3 sm:px-6 py-2 flex items-center justify-between gap-2.5">
       {/* Zone 1: Single text element wordmark / Brand */}
-      <div className="flex items-center gap-2.5">
+      <div className="flex items-center gap-2.5 shrink-0">
         <button
           onClick={() => {
             sound.playTypewriter();
@@ -268,6 +292,14 @@ export const TopBar: React.FC<TopBarProps> = ({
           className="p-2 rounded text-slate-400 hover:text-slate-200 border border-slate-800 bg-slate-900/80 transition-colors"
         >
           {isMuted ? <VolumeX className="w-4 h-4 text-rose-400" /> : <Volume2 className="w-4 h-4 text-slate-300" />}
+        </button>
+
+        <button
+          onClick={toggleFullscreen}
+          title={isFullscreen ? 'Exit Fullscreen' : 'Enter True Fullscreen'}
+          className="p-2 rounded text-slate-400 hover:text-amber-300 border border-slate-800 bg-slate-900/80 transition-colors"
+        >
+          {isFullscreen ? <Minimize className="w-4 h-4 text-amber-400" /> : <Maximize className="w-4 h-4 text-slate-300" />}
         </button>
 
         {currentTab !== 'home' && currentTab !== 'cases' && (

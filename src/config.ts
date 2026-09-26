@@ -38,7 +38,7 @@ export const APP_CONFIG = {
     userAgent: 'aistudio-build',
     ttsVoiceMap: {
       'suspect-julian-vance': 'Puck',
-      'suspect-evelyn-cross': 'Kore',
+      'suspect-evelyn-cross': 'Aoede',
       'suspect-marcus-drake': 'Fenrir',
       'suspect-aris-thorne': 'Charon',
     } as Record<string, string>,
@@ -52,6 +52,35 @@ export const APP_CONFIG = {
     bodyLimit: '50mb',
     chatEndpoint: '/api/chat-suspect',
     apiBaseUrl: (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_API_BASE_URL) || '',
+    cloudRunUrl: 'https://ais-pre-6z5vr3noz2kr3yibi37qrh-475308742351.europe-west1.run.app',
+    getApiBaseUrl: (): string => {
+      try {
+        const stored = typeof window !== 'undefined' ? localStorage.getItem('detective_stories_api_base_url') : null;
+        if (stored && stored.trim()) return stored.trim().replace(/\/+$/, '');
+      } catch {}
+      const envUrl = ((typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_API_BASE_URL) || '').trim().replace(/\/+$/, '');
+      if (envUrl) return envUrl;
+
+      // When running on external hosting like itch.io or hwcdn.net, default to the published Cloud Run backend
+      if (typeof window !== 'undefined' && window.location) {
+        const hostname = window.location.hostname || '';
+        if (hostname.includes('itch.io') || hostname.includes('hwcdn.net')) {
+          return 'https://ais-pre-6z5vr3noz2kr3yibi37qrh-475308742351.europe-west1.run.app';
+        }
+      }
+      return '';
+    },
+    setApiBaseUrl: (url: string): void => {
+      try {
+        if (typeof window !== 'undefined') {
+          if (url && url.trim()) {
+            localStorage.setItem('detective_stories_api_base_url', url.trim().replace(/\/+$/, ''));
+          } else {
+            localStorage.removeItem('detective_stories_api_base_url');
+          }
+        }
+      } catch {}
+    },
   },
 
   /**

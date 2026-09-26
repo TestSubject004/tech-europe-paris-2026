@@ -234,6 +234,7 @@ export const InterrogationChamber: React.FC<InterrogationChamberProps> = ({
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const speechRecognitionRef = useRef<any>(null);
+  const liveTranscriptRef = useRef<string>('');
   const startTimeRef = useRef<number>(0);
   const recordingTimerRef = useRef<any>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -312,6 +313,7 @@ export const InterrogationChamber: React.FC<InterrogationChamberProps> = ({
   const handleStartVoiceRecording = async () => {
     setRecordingError(null);
     setSpeechTranscriptPreview('');
+    liveTranscriptRef.current = '';
     sound.stopSpeaking();
     sound.playTypewriter();
 
@@ -407,9 +409,9 @@ export const InterrogationChamber: React.FC<InterrogationChamberProps> = ({
         const durationSec = Math.max(0.5, (Date.now() - startTimeRef.current) / 1000);
         const timeFormatted = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-        // If SpeechRecognition already gave us good text, use it directly
-        const capturedText = inputQuery.trim();
-        if (capturedText && capturedText.length > 2) {
+        // If SpeechRecognition gave us text via liveTranscriptRef (immune to React stale closures), use it directly
+        const capturedText = (liveTranscriptRef.current || inputQuery).trim();
+        if (capturedText && capturedText.length > 0) {
           setSpeechTranscriptPreview('');
           setLastVoiceResult({
             transcript: capturedText,
@@ -432,7 +434,9 @@ export const InterrogationChamber: React.FC<InterrogationChamberProps> = ({
           return;
         }
 
-        // Process audio via Gemini multimodal backend
+        // Process audio via Gemini multimodal backend or standalone fallback
+        const baseUrl = APP_CONFIG.server.getApiBaseUrl();
+
         if (audioChunksRef.current.length > 0) {
           setIsTranscribing(true);
           try {
@@ -443,7 +447,8 @@ export const InterrogationChamber: React.FC<InterrogationChamberProps> = ({
               try {
                 const resultStr = reader.result as string;
                 const base64Audio = resultStr.includes(',') ? resultStr.split(',')[1] : resultStr;
-                const res = await fetch(`${APP_CONFIG.server.apiBaseUrl}/api/transcribe`, {
+                const endpoint = `${baseUrl}/api/transcribe`;
+                const res = await fetch(endpoint, {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({ audioBase64: base64Audio, mimeType: actualMime }),
@@ -479,33 +484,31 @@ export const InterrogationChamber: React.FC<InterrogationChamberProps> = ({
                       durationSec,
                       status: 'no_speech',
                     });
-                    setVoiceLogs((prev) => [
-                      {
-                        id: `vlog-${Date.now()}`,
-                        timestamp: timeFormatted,
-                        suspectName: activeSuspect.name,
-                        transcript: '(No speech detected)',
-                        durationSec,
-                        status: 'silent',
-                      },
-                      ...prev,
-                    ]);
                     setRecordingError(
-                      `Audio of ${durationSec.toFixed(1)}s was received, but no words were heard. Speak closer to your microphone and try again.`
+                      `Audio of ${durationSec.toFixed(1)}s was received, but no words were heard. Speak clearly into your mic or click a Quick Accusation below!`
                     );
                   }
                 } else {
-                  const errJson = await res.json().catch(() => ({}));
-                  setRecordingError(errJson.error || 'Transcription server error. Please try again.');
                   setLastVoiceResult({
-                    transcript: '(Transcription error)',
+                    transcript: '(No speech detected)',
                     timestamp: timeFormatted,
                     durationSec,
-                    status: 'error',
+                    status: 'no_speech',
                   });
+                  setRecordingError(
+                    `Voice inquest ready. Click any "Quick Accusation" button below to interrogate ${activeSuspect.name}, or type your question in the box!`
+                  );
                 }
               } catch (err: any) {
-                setRecordingError('Could not process speech audio: ' + (err.message || 'Network error'));
+                setLastVoiceResult({
+                  transcript: '(Voice offline)',
+                  timestamp: timeFormatted,
+                  durationSec,
+                  status: 'no_speech',
+                });
+                setRecordingError(
+                  `Voice audio recorded. Click any "Quick Accusation" below to immediately interrogate ${activeSuspect.name} with your findings, or type your question!`
+                );
               } finally {
                 setIsTranscribing(false);
               }
@@ -520,29 +523,46 @@ export const InterrogationChamber: React.FC<InterrogationChamberProps> = ({
       mediaRecorderRef.current = recorder;
       setIsRecording(true);
 
-      // Optionally start browser speech recognition if supported (Chrome/Edge/Safari)
+      // Start browser speech recognition if supported (Chrome/Edge/Safari/Opera)
       const SpeechRecognition =
         (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 
       if (SpeechRecognition) {
         try {
           const recognition = new SpeechRecognition();
-          recognition.continuous = false;
+          recognition.continuous = true;
           recognition.interimResults = true;
+          recognition.maxAlternatives = 1;
           recognition.lang = 'en-US';
 
           recognition.onresult = (event: any) => {
-            let interim = '';
-            for (let i = event.resultIndex; i < event.results.length; ++i) {
-              interim += event.results[i][0].transcript;
+            let fullText = '';
+            for (let i = 0; i < event.results.length; i++) {
+              if (event.results[i] && event.results[i][0]) {
+                fullText += event.results[i][0].transcript;
+              }
             }
-            if (interim) {
-              setSpeechTranscriptPreview(interim);
-              setInputQuery(interim);
+            const trimmed = fullText.trim();
+            if (trimmed) {
+              liveTranscriptRef.current = trimmed;
+              setSpeechTranscriptPreview(trimmed);
+              setInputQuery(trimmed);
             }
           };
 
-          recognition.onerror = () => {};
+          recognition.onerror = (e: any) => {
+            console.warn('[SpeechRec] Recognition event notice:', e.error);
+          };
+
+          recognition.onend = () => {
+            // Keep active while recording is ongoing
+            if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+              try {
+                recognition.start();
+              } catch {}
+            }
+          };
+
           recognition.start();
           speechRecognitionRef.current = recognition;
         } catch {}
@@ -552,7 +572,7 @@ export const InterrogationChamber: React.FC<InterrogationChamberProps> = ({
       const isDenied = err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError';
       setRecordingError(
         isDenied
-          ? 'Microphone permission blocked. In Firefox, click the microphone/lock icon in the URL bar to allow microphone access.'
+          ? 'Microphone permission blocked. Click the microphone/lock icon in the URL bar to allow microphone access.'
           : `Microphone issue: ${err.message || 'Device unavailable'}`
       );
       setIsRecording(false);
@@ -616,7 +636,8 @@ export const InterrogationChamber: React.FC<InterrogationChamberProps> = ({
     setIsGenerating(true);
 
     try {
-      const response = await fetch(`${APP_CONFIG.server.apiBaseUrl}/api/chat-suspect`, {
+      const baseUrl = APP_CONFIG.server.getApiBaseUrl();
+      const response = await fetch(`${baseUrl}/api/chat-suspect`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -718,14 +739,72 @@ export const InterrogationChamber: React.FC<InterrogationChamberProps> = ({
         });
       }
     } catch {
-      // Fallback response if network disconnect
-      const fallbackReply = `${activeSuspect.name} maintains a guarded posture. "You'll have to present harder facts than that, Detective."`;
+      // Fallback response for offline / standalone hosts (e.g. itch.io)
+      const q = textToSend.toLowerCase();
+      let fallbackReply = `${activeSuspect.name} maintains a guarded posture. "You'll have to present harder facts than that, Detective."`;
+      let didCrackOffline = false;
+      let matchedStatementId = '';
+
+      if (coldCase.id === 'case-01-velvet-ash') {
+        if (activeSuspect.id === 'suspect-julian-vance') {
+          if (q.includes('phone') || q.includes('11:15') || q.includes('11:30') || q.includes('cable') || q.includes('switchboard') || q.includes('cut')) {
+            fallbackReply = 'Alright, damn you! Arthur never phoned me. The switchboard was severed at 11:15 PM and I knew it. But that doesn’t prove I poisoned his scotch!';
+            didCrackOffline = true;
+            matchedStatementId = 'stmt-jv-01';
+          } else if (q.includes('key') || q.includes('duplicate') || q.includes('carpet') || q.includes('wool') || q.includes('service')) {
+            fallbackReply = 'Fine! I took the duplicate service key from Arthur’s desk weeks ago. I went up there to retrieve my promissory notes, but he was already dead!';
+            didCrackOffline = true;
+            matchedStatementId = 'stmt-jv-02';
+          } else if (q.includes('poison') || q.includes('aconitine') || q.includes('scotch') || q.includes('wolfsbane') || q.includes('thorne')) {
+            fallbackReply = 'Dr. Thorne swore the aconitine tincture was undetectable! Arthur was ruining my gallery... he gave me no choice!';
+            didCrackOffline = true;
+            matchedStatementId = 'stmt-jv-03';
+          }
+        } else if (activeSuspect.id === 'suspect-aris-thorne') {
+          if (q.includes('manifest') || q.includes('warehouse') || q.includes('500ml') || q.includes('aconitine') || q.includes('dispensary')) {
+            fallbackReply = 'Julian blackmailed me with my counterfeit morphine prescriptions! I prepared the tincture, but I never set foot inside Arthur’s penthouse!';
+            didCrackOffline = true;
+            matchedStatementId = 'stmt-at-01';
+          }
+        }
+      } else if (coldCase.id === 'case-02-dockland-fog') {
+        if (activeSuspect.id === 'suspect-julian-vance') {
+          if (q.includes('manifest') || q.includes('rotterdam') || q.includes('00:45') || q.includes('seal') || q.includes('countersign') || q.includes('berth')) {
+            fallbackReply = 'Silas O’Malley discovered the Dutch antiquities in crate 14! He demanded twenty thousand dollars or he was calling the commissioner!';
+            didCrackOffline = true;
+            matchedStatementId = 'stmt-jv-02-01';
+          } else if (q.includes('ash') || q.includes('sobranie') || q.includes('cigarette') || q.includes('thermos') || q.includes('curare') || q.includes('poison')) {
+            fallbackReply = 'I spiked the thermos while Silas was checking the generator! It was self-preservation, Detective!';
+            didCrackOffline = true;
+            matchedStatementId = 'stmt-jv-02-02';
+          }
+        } else if (activeSuspect.id === 'suspect-aris-thorne') {
+          if (q.includes('sandbar') || q.includes('vial') || q.includes('tubocurarine') || q.includes('bottle') || q.includes('curare')) {
+            fallbackReply = 'Julian swore to me it was only a veterinary sedative to put Silas to sleep for three hours! I threw the empty vial into the low-tide mud!';
+            didCrackOffline = true;
+            matchedStatementId = 'stmt-at-02-01';
+          }
+        }
+      }
+
+      if (didCrackOffline && matchedStatementId) {
+        onCrackStatement(matchedStatementId, activeSuspect.id);
+        sound.playSuccessChime();
+        setFeedbackResult({
+          success: true,
+          title: 'DECEPTION CRACKED THROUGH CONVERSATION',
+          message: `${activeSuspect.name}’s alibi gave way under your direct inquest. Their admission has been permanently entered into the case file.`,
+          breakdown: fallbackReply,
+        });
+      }
+
       const suspectMessage: ChatMessage = {
         id: `sus-${Date.now()}`,
         sender: 'suspect',
         text: fallbackReply,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         reading: currentStatement.biometricReading,
+        isCracked: didCrackOffline,
       };
 
       setChatHistories((prev) => ({

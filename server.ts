@@ -836,24 +836,28 @@ async function generateGeminiSpeechAudio(text: string, suspectId: string): Promi
   if (!ai) return null;
   try {
     const voiceName = (APP_CONFIG.ai.ttsVoiceMap as Record<string, string>)[suspectId] || 'Charon';
-    const stylePrompt =
-      suspectId === 'suspect-evelyn-cross'
-        ? 'Anxious emotional trembling American female voice, vintage cinema style'
-        : suspectId === 'suspect-aris-thorne'
-        ? 'Articulate, natural, intellectual 50-year-old American male physician, speaking with clear human nuance, composure, and pedantic precision'
-        : suspectId === 'suspect-marcus-drake'
-        ? 'Gravelly, world-weary docklands American male voice, slow and cynical'
-        : 'Smooth, aristocratic 1940s film noir American male voice';
+    
+    // Strip redundant markdown quotes or bracketed meta tags from incoming dialogue
+    const cleanDialogue = text.replace(/^[«"']+|[»"']+$/g, '').trim().slice(0, 420);
+
+    // Frame speech text with dramatic film-noir character performance direction to prevent monotonous delivery
+    let performanceText = cleanDialogue;
+    if (suspectId === 'suspect-evelyn-cross') {
+      performanceText = `(Speaking with intense trembling anxiety, breathless vulnerability, emotional pitch shifts, and high vocal strain): "${cleanDialogue}"`;
+    } else if (suspectId === 'suspect-julian-vance') {
+      performanceText = `(Speaking with theatrical aristocratic arrogance, silky condescension, disdainful smirks, and dramatic film noir cadence): "${cleanDialogue}"`;
+    } else if (suspectId === 'suspect-marcus-drake') {
+      performanceText = `(Speaking with deep gravelly blue-collar gruffness, world-weary docklands cynicism, low raspy resonance, and blunt defiance): "${cleanDialogue}"`;
+    } else if (suspectId === 'suspect-aris-thorne') {
+      performanceText = `(Speaking with cold clinical intellectualism, sharp pedantic cadence, haughty medical superiority, and crisp articulate diction): "${cleanDialogue}"`;
+    }
 
     const ttsContents = [
       {
         role: 'user',
         parts: [
           {
-            text: text.slice(0, 400),
-            speechMetadata: {
-              style: stylePrompt,
-            },
+            text: performanceText,
           },
         ],
       },

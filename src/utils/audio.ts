@@ -388,46 +388,43 @@ class SoundEngine {
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.lang = 'en-US';
 
-      // Pick an American English voice if available
-      const voices = window.speechSynthesis.getVoices();
-      const usVoices = voices.filter(
-        (v) => v.lang === 'en-US' || v.lang === 'en_US' || v.lang.startsWith('en-US')
+      // Pick an English voice with character-specific tonal traits
+      const allVoices = window.speechSynthesis.getVoices();
+      const enVoices = allVoices.filter(
+        (v) => v.lang.startsWith('en')
       );
+      const pool = enVoices.length > 0 ? enVoices : allVoices;
 
-      // Character voice customizations
+      // Character voice customizations with dramatic pitch and pacing differentiation
       if (suspectId === 'suspect-evelyn-cross') {
-        const femaleVoice = usVoices.find((v) =>
-          v.name.includes('Female') || v.name.includes('Zira') || v.name.includes('Samantha') || v.name.includes('Victoria')
-        ) || usVoices[0];
+        const femaleVoice = pool.find((v) =>
+          v.name.includes('Female') || v.name.includes('Zira') || v.name.includes('Samantha') || v.name.includes('Victoria') || v.name.includes('Karen')
+        ) || pool[0];
         if (femaleVoice) utterance.voice = femaleVoice;
-        utterance.pitch = 1.15;
-        utterance.rate = 1.05;
+        utterance.pitch = 1.35;
+        utterance.rate = 1.12;
       } else if (suspectId === 'suspect-julian-vance') {
-        const maleVoice = usVoices.find((v) =>
-          (v.name.includes('Male') || v.name.includes('David') || v.name.includes('Alex')) && !v.name.includes('Female')
-        ) || usVoices[0];
-        if (maleVoice) utterance.voice = maleVoice;
-        utterance.pitch = 0.94;
+        const aristocratVoice = pool.find((v) =>
+          (v.name.includes('George') || v.name.includes('Daniel') || v.name.includes('Oliver') || v.name.includes('Male')) && !v.name.includes('Female')
+        ) || pool[0];
+        if (aristocratVoice) utterance.voice = aristocratVoice;
+        utterance.pitch = 1.04;
         utterance.rate = 0.95;
       } else if (suspectId === 'suspect-marcus-drake') {
-        const maleVoice = usVoices.find((v) =>
-          (v.name.includes('Male') || v.name.includes('David')) && !v.name.includes('Female')
-        ) || usVoices[0];
-        if (maleVoice) utterance.voice = maleVoice;
-        utterance.pitch = 0.75;
-        utterance.rate = 0.88;
+        const gruffVoice = pool.find((v) =>
+          (v.name.includes('David') || v.name.includes('Mark') || v.name.includes('Guy') || v.name.includes('Male')) && !v.name.includes('Female')
+        ) || pool[0];
+        if (gruffVoice) utterance.voice = gruffVoice;
+        utterance.pitch = 0.60;
+        utterance.rate = 0.84;
       } else if (suspectId === 'suspect-aris-thorne') {
-        const naturalVoice = usVoices.find((v) =>
-          (v.name.includes('Natural') || v.name.includes('Online') || v.name.includes('Google') || v.name.includes('Neural')) &&
-          !v.name.includes('Female') && !v.name.includes('Zira')
-        );
-        const maleVoice = naturalVoice || usVoices.find((v) =>
-          (v.name.includes('Male') || v.name.includes('Guy') || v.name.includes('David') || v.name.includes('George')) && !v.name.includes('Female')
-        ) || usVoices[0];
-
-        if (maleVoice) utterance.voice = maleVoice;
-        utterance.pitch = 0.98;
-        utterance.rate = 1.0;
+        const clinicianVoice = pool.find((v) =>
+          (v.name.includes('Natural') || v.name.includes('Online') || v.name.includes('Google') || v.name.includes('Alex')) &&
+          !v.name.includes('Female')
+        ) || pool[0];
+        if (clinicianVoice) utterance.voice = clinicianVoice;
+        utterance.pitch = 0.88;
+        utterance.rate = 1.18;
       }
 
       utterance.onstart = () => {
@@ -577,7 +574,8 @@ class SoundEngine {
 
     // 2. Otherwise request high-fidelity Gemini TTS audio from /api/speak
     try {
-      const resp = await fetch(`${APP_CONFIG.server.apiBaseUrl}/api/speak`, {
+      const baseUrl = APP_CONFIG.server.getApiBaseUrl();
+      const resp = await fetch(`${baseUrl}/api/speak`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text, suspectId }),
